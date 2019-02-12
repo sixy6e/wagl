@@ -30,6 +30,9 @@ SUBROUTINE reflectance( &
     iref_lm, &
     iref_brdf, &
     iref_terrain, &
+    fref_lm, &
+    fref_brdf, &
+    fref_terrain, &
     norm_solar_zenith)
 
 !   Calculates lambertian, brdf corrected and terrain corrected surface
@@ -64,6 +67,9 @@ SUBROUTINE reflectance( &
     integer*2 iref_brdf(nrow, ncol) ! atmospheric and brdf corrected reflectance
     integer*2 iref_terrain(nrow, ncol) ! atmospheric and brdf and terrain corrected reflectance
     real norm_solar_zenith ! solar zenith to normalize surface reflectance to
+    real*4 fref_lm(nrow, ncol)
+    real*4 fref_brdf(nrow, ncol)
+    real*4 fref_terrain(nrow, ncol)
 
 !internal parameters passed as arrays.
     real*4 ref_lm(nrow)
@@ -77,12 +83,14 @@ SUBROUTINE reflectance( &
 !f2py depend(nrow, ncol), rela_slope, a_mod, b_mod, s_mod, fv, fs, ts
 !f2py depend(nrow, ncol), edir_h, edif_h
 !f2py depend(nrow, ncol), iref_lm, iref_brdf, iref_terrain
+!f2py depend(nrow, ncol), fref_lm, fref_brdf, fref_terrain
 !f2py intent(in) rori, brdf0, brdf1, brdf2, ref_adj, no_data
 !f2py intent(in) dn_1, shadow_mask, solar_angle,
 !f2py intent(in) sazi_angle, view_angle, rela_angle, slope_angle, aspect_angle
 !f2py intent(in) it_angle, et_angle, rela_slope, a_mod, b_mod, s_mod, fv, fs, ts, edir_h, edif_h
 !f2py intent(in) ref_lm, ref_brdf, ref_terrain, dn
 !f2py intent(inout) iref_lm, iref_brdf, iref_terrain
+!f2py intent(inout) fref_lm, fref_brdf, fref_terrain
 
 !   internal parameters
     integer i, j, i_no_data
@@ -179,6 +187,7 @@ SUBROUTINE reflectance( &
             ref_lm(i) = (lt - b_mod(i, j)) / (a_mod(i, j) + s_mod(i, j) * &
                         (lt - b_mod(i, j)))
             iref_lm(i, j) = ref_lm(i) * 10000 + 0.5
+            fref_lm(i, j) = ref_lm(i)
 
 !           set as small number if atmospheric corrected reflectance
 !           below 0.001
@@ -188,6 +197,8 @@ SUBROUTINE reflectance( &
                 ref_brdf(i) = 0.001
                 iref_lm(i, j) = 10
                 iref_brdf(i, j) = 10
+                fref_lm(i, j) = 0.001
+                fref_brdf(i, j) = 0.001
             else
 !               calculate normalized BRDF shape function
                 ann_f = RL_brdf(solar, view, ra_lm, hb, br, 1.0, norm_1, norm_2)
@@ -215,12 +226,14 @@ SUBROUTINE reflectance( &
                     ref_brdfrealf = ann_f * ref_barf / aa_white
                     ref_brdf(i) = ref_barf * fnn / aa_white
                     iref_brdf(i, j) = ref_brdf(i) * 10000 + 0.5
+                    fref_brdf(i, j) = ref_brdf(i)
 
 !               this is to ensure that the brdf correction
 !               is the same as (or as close as possible to) the original NBAR version
                 if (ref_brdf(i) .ge. 1) then
                   ref_brdf(i) = 1.0
                   iref_brdf(i, j) = ref_brdf(i) * 10000
+                  fref_brdf(i, j) = ref_brdf(i)
                 endif
 
             endif
@@ -303,9 +316,11 @@ SUBROUTINE reflectance( &
                 ref_brdfreals = ann_s * ref_bars / aa_white
                 ref_terrain(i) = ref_bars * fnn / aa_white
                 iref_terrain(i, j) = int(ref_terrain(i) * 10000.0 + 0.5)
+                fref_terrain(i, j) = ref_terrain(i)
 
                 if (ref_terrain(i) .ge. 1) then
                     ref_terrain(i) = 1.0
+                    fref_terrain(i, j) = 1.0
                     iref_terrain(i, j) = int(ref_terrain(i) * 10000.0 + 0.5)
                 endif
 
@@ -314,16 +329,19 @@ SUBROUTINE reflectance( &
 !
                 if (it_angle(i, j) .ge. 85.0) then
                     iref_terrain(i, j) = i_no_data
+                    fref_terrain(i, j) = no_data
                 endif
 
                 if (et_angle(i, j) .ge. 85.0) then
                     iref_terrain(i, j) = i_no_data
+                    fref_terrain(i, j) = no_data
                 endif
 
 !     if in masked or otherwise unused area you get here
 !     put in no_data values to indicate null data
                 else
                     iref_terrain(i, j) = i_no_data
+                    fref_terrain(i, j) = no_data
                 endif
             else
                 ref_lm(i) = no_data
@@ -332,6 +350,9 @@ SUBROUTINE reflectance( &
                 iref_lm(i, j) = i_no_data
                 iref_brdf(i, j) = i_no_data
                 iref_terrain(i, j) = i_no_data
+                fref_lm(i, j) = no_data
+                fref_brdf(i, j) = no_data
+                fref_terrain(i, j) = no_data
             endif
         enddo
     enddo

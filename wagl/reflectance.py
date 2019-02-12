@@ -227,17 +227,25 @@ def calculate_reflectance(acquisition, interpolation_group,
     kwargs['shape'] = (acquisition.lines, acquisition.samples)
     kwargs['fillvalue'] = NO_DATA_VALUE
     kwargs['dtype'] = 'int16'
+    fkwars = kwargs.copy()
+    fkwargs['dtype'] = 'float32'
 
     # create the datasets
     dname_fmt = DatasetName.REFLECTANCE_FMT.value
     dname = dname_fmt.format(product=AP.LAMBERTIAN.value, band_name=bn)
     lmbrt_dset = grp.create_dataset(dname, **kwargs)
+    dname = dname_fmt.format(product=AP.LAMBERTIAN.value, band_name='FLOAT-{}'.format(bn))
+    flmbrt_dset = grp.create_dataset(dname, **fkwargs)
 
     dname = dname_fmt.format(product=AP.NBAR.value, band_name=bn)
     nbar_dset = grp.create_dataset(dname, **kwargs)
+    dname = dname_fmt.format(product=AP.NBAR.value, band_name='FLOAT-{}'.format(bn))
+    fnbar_dset = grp.create_dataset(dname, **fkwargs)
 
     dname = dname_fmt.format(product=AP.NBART.value, band_name=bn)
     nbart_dset = grp.create_dataset(dname, **kwargs)
+    dname = dname_fmt.format(product=AP.NBART.value, band_name='FLOAT-{}'.format(bn))
+    fnbart_dset = grp.create_dataset(dname, **fkwargs)
 
     # attach some attributes to the image datasets
     attrs = {'crs_wkt': geobox.crs.ExportToWkt(),
@@ -301,6 +309,9 @@ def calculate_reflectance(acquisition, interpolation_group,
         ref_lm = numpy.zeros((ysize, xsize), dtype='int16')
         ref_brdf = numpy.zeros((ysize, xsize), dtype='int16')
         ref_terrain = numpy.zeros((ysize, xsize), dtype='int16')
+        fref_lm = numpy.zeros((ysize, xsize), dtype='float32')
+        fref_brdf = numpy.zeros((ysize, xsize), dtype='float32')
+        fref_terrain = numpy.zeros((ysize, xsize), dtype='float32')
 
         # Allocate the work arrays (single row of data)
         ref_lm_work = numpy.zeros(xsize, dtype='float32')
@@ -315,13 +326,18 @@ def calculate_reflectance(acquisition, interpolation_group,
                     incident_angle, exiting_angle, relative_slope, a_mod,
                     b_mod, s_mod, fs, fv, ts, direct, diffuse, ref_lm_work,
                     ref_brdf_work, ref_terrain_work, ref_lm.transpose(),
-                    ref_brdf.transpose(), ref_terrain.transpose(), normalized_solar_zenith)
+                    ref_brdf.transpose(), ref_terrain.transpose(),
+                    fref_lm.transpose(), fref_brdf.transpose(), fref_terrain.transpose(),
+                    normalized_solar_zenith)
 
 
         # Write the current tile to disk
         lmbrt_dset[idx] = ref_lm
         nbar_dset[idx] = ref_brdf
         nbart_dset[idx] = ref_terrain
+        flmbrt_dset[idx] = fref_lm
+        fnbar_dset[idx] = fref_brdf
+        fnbart_dset[idx] = fref_terrain
 
     # close any still opened files, arrays etc associated with the acquisition
     acquisition.close()
